@@ -85,32 +85,35 @@ class LatticeSCQ : public StateChangeQuery{
 };
 
 SBPLLatticePlanner::SBPLLatticePlanner()
-  : tf_(nullptr), node_(nullptr), costmap_(nullptr) {}
+  : tf_(nullptr), costmap_(nullptr) {}
 
 void SBPLLatticePlanner::configure(
-  rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
+  const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
   std::string name, std::shared_ptr<tf2_ros::Buffer> tf,
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
 {
-  auto node_ = parent.lock();
+  nh_ = parent;
+  auto node_ = nh_.lock();
   //node_ = parent;
   name_ = name;
   tf_ = tf;
   costmap_ros_ = costmap_ros;
+  clock_ = node_->get_clock();
+  logger_ = node_->get_logger();
 //   costmap_ = costmap_ros->getCostmap();
   global_frame_ = costmap_ros->getGlobalFrameID();
 
   initialized_ = false;
-  initialize();
+  initialize(node_);
 
 }
 
-void SBPLLatticePlanner::initialize()
+void SBPLLatticePlanner::initialize(nav2_util::LifecycleNode::SharedPtr node_)
 {
   if(!initialized_){
 
     RCLCPP_INFO(
-      node_->get_logger(), "Name is %s", name_.c_str());
+      logger_, "Name is %s", name_.c_str());
 
     nav2_util::declare_parameter_if_not_declared(
       node_, name_ + ".planner_type", rclcpp::ParameterValue("ARAPlanner"));
@@ -159,7 +162,7 @@ void SBPLLatticePlanner::initialize()
     inscribed_inflated_obstacle_ = lethal_obstacle_-1;
     sbpl_cost_multiplier_ = (unsigned char) (nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE/inscribed_inflated_obstacle_ + 1);
     RCLCPP_DEBUG(
-        node_->get_logger(), "SBPL: lethal: %uz, inscribed inflated: %uz, multiplier: %uz",lethal_obstacle,inscribed_inflated_obstacle_,sbpl_cost_multiplier_);
+        logger_, "SBPL: lethal: %uz, inscribed inflated: %uz, multiplier: %uz",lethal_obstacle,inscribed_inflated_obstacle_,sbpl_cost_multiplier_);
 
     // name_ = name;
     // costmap_ros_ = costmap_ros;
@@ -168,12 +171,12 @@ void SBPLLatticePlanner::initialize()
 
     if ("XYThetaLattice" == environment_type_){
       RCLCPP_DEBUG(
-        node_->get_logger(), "Using a 3D costmap for theta lattice\n");
+        logger_, "Using a 3D costmap for theta lattice\n");
       env_ = new EnvironmentNAVXYTHETALAT();
     }
     else{
       RCLCPP_ERROR(
-        node_->get_logger(), "XYThetaLattice is currently the only supported environment!\n");
+        logger_, "XYThetaLattice is currently the only supported environment!\n");
       exit(1);
     }
 
@@ -187,21 +190,21 @@ void SBPLLatticePlanner::initialize()
       // SBPL won't run into obstacles, but will always perform an expensive
       // footprint check, no matter how far the nearest obstacle is.
       RCLCPP_WARN(
-        node_->get_logger(),
+        logger_,
         "The costmap value at the robot's circumscribed radius (%f m) is 0.", costmap_ros_->getLayeredCostmap()->getCircumscribedRadius());
       RCLCPP_WARN(
-        node_->get_logger(), "SBPL performance will suffer.");
+        logger_, "SBPL performance will suffer.");
       RCLCPP_WARN(
-        node_->get_logger(), "Please decrease the costmap's cost_scaling_factor.");
+        logger_, "Please decrease the costmap's cost_scaling_factor.");
     }
     if(!env_->SetEnvParameter("cost_inscribed_thresh",costMapCostToSBPLCost(nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))){
       RCLCPP_ERROR(
-        node_->get_logger(), "Failed to set cost_inscribed_thresh parameter");
+        logger_, "Failed to set cost_inscribed_thresh parameter");
       exit(1);
     }
     if(!env_->SetEnvParameter("cost_possibly_circumscribed_thresh", circumscribed_cost_)){
       RCLCPP_ERROR(
-        node_->get_logger(), "Failed to set cost_possibly_circumscribed_thresh parameter");
+        logger_, "Failed to set cost_possibly_circumscribed_thresh parameter");
       exit(1);
     }
     int obst_cost_thresh = costMapCostToSBPLCost(nav2_costmap_2d::LETHAL_OBSTACLE);
@@ -230,12 +233,12 @@ void SBPLLatticePlanner::initialize()
     }
     catch(SBPL_Exception *e){
       RCLCPP_ERROR(
-        node_->get_logger(), "SBPL encountered a fatal exception: %s", e->what());
+        logger_, "SBPL encountered a fatal exception: %s", e->what());
       ret = false;
     }
     if(!ret){
       RCLCPP_ERROR(
-        node_->get_logger(), "SBPL initialization failed!");
+        logger_, "SBPL initialization failed!");
       exit(1);
     }
     for (ssize_t ix(0); ix < costmap_ros_->getCostmap()->getSizeInCellsX(); ++ix)
@@ -244,22 +247,22 @@ void SBPLLatticePlanner::initialize()
 
     if ("ARAPlanner" == planner_type_){
       RCLCPP_INFO(
-        node_->get_logger(), "Planning with ARA*");
+        logger_, "Planning with ARA*");
       planner_ = new ARAPlanner(env_, forward_search_);
     }
     else if ("ADPlanner" == planner_type_){
       RCLCPP_INFO(
-        node_->get_logger(), "Planning with AD*");
+        logger_, "Planning with AD*");
       planner_ = new ADPlanner(env_, forward_search_);
     }
     else{
       RCLCPP_ERROR(
-        node_->get_logger(), "ARAPlanner and ADPlanner are currently the only supported planners!\n");
+        logger_, "ARAPlanner and ADPlanner are currently the only supported planners!\n");
       exit(1);
     }
 
     RCLCPP_INFO(
-        node_->get_logger(), "[sbpl_lattice_planner] Initialized successfully");
+        logger_, "[sbpl_lattice_planner] Initialized successfully");
     // plan_pub_ = private_nh.advertise<nav_msgs::Path>("plan", 1);
     stats_publisher_ = node_->create_publisher<nav2_sbpl_lattice_planner_msgs::msg::SbplLatticePlannerStats>("sbpl_lattice_planner_stats", 1);
     
@@ -270,7 +273,7 @@ void SBPLLatticePlanner::initialize()
 void SBPLLatticePlanner::cleanup()
 {
   RCLCPP_INFO(
-    node_->get_logger(), "CleaningUp plugin %s of type NavfnPlanner",
+    logger_, "CleaningUp plugin %s of type NavfnPlanner",
     name_.c_str());
     stats_publisher_.reset();
 }
@@ -278,7 +281,7 @@ void SBPLLatticePlanner::cleanup()
 void SBPLLatticePlanner::activate()
 {
   RCLCPP_INFO(
-    node_->get_logger(), "Activating plugin %s of type NavfnPlanner",
+    logger_, "Activating plugin %s of type NavfnPlanner",
     name_.c_str());
     stats_publisher_->on_activate();
 }
@@ -286,7 +289,7 @@ void SBPLLatticePlanner::activate()
 void SBPLLatticePlanner::deactivate()
 {
   RCLCPP_INFO(
-    node_->get_logger(), "Deactivating plugin %s of type NavfnPlanner",
+    logger_, "Deactivating plugin %s of type NavfnPlanner",
     name_.c_str());
     stats_publisher_->on_deactivate();
 }
@@ -338,7 +341,7 @@ unsigned char SBPLLatticePlanner::computeCircumscribedCost() {
 
   if (!costmap_ros_) {
     RCLCPP_ERROR(
-        node_->get_logger(), "Costmap is not initialized");
+        logger_, "Costmap is not initialized");
     return 0;
   }
 
@@ -361,11 +364,11 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
 
   nav_msgs::msg::Path path;
 
-  RCLCPP_INFO(node_->get_logger(), "Create plan.."); 
+  RCLCPP_INFO(logger_, "Create plan.."); 
 
   if(!initialized_){
     RCLCPP_ERROR(
-        node_->get_logger(), "Global planner is not initialized");
+        logger_, "Global planner is not initialized");
     return path;
   }
 
@@ -373,19 +376,19 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
   if (current_env_width_ != costmap_ros_->getCostmap()->getSizeInCellsX() ||
       current_env_height_ != costmap_ros_->getCostmap()->getSizeInCellsY()) {
     RCLCPP_INFO(
-      node_->get_logger(), "Costmap dimensions have changed from (%d x %d) to (%d x %d), reinitializing sbpl_lattice_planner.",
+      logger_, "Costmap dimensions have changed from (%d x %d) to (%d x %d), reinitializing sbpl_lattice_planner.",
              current_env_width_, current_env_height_,
              costmap_ros_->getCostmap()->getSizeInCellsX(), costmap_ros_->getCostmap()->getSizeInCellsY());
     do_init = true;
   }
   else if (footprint_ != costmap_ros_->getRobotFootprint()) {
     RCLCPP_INFO(
-      node_->get_logger(), "Robot footprint has changed, reinitializing sbpl_lattice_planner.");
+      logger_, "Robot footprint has changed, reinitializing sbpl_lattice_planner.");
     do_init = true;
   }
   else if (circumscribed_cost_ != computeCircumscribedCost()) {
     RCLCPP_INFO(
-      node_->get_logger(), "Cost at circumscribed radius has changed, reinitializing sbpl_lattice_planner.");
+      logger_, "Cost at circumscribed radius has changed, reinitializing sbpl_lattice_planner.");
     do_init = true;
   }
 
@@ -395,11 +398,14 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
     planner_ = NULL;
     delete env_;
     env_ = NULL;
-    initialize();
+
+    auto node_ = nh_.lock();
+
+    initialize(node_);
   }
 
   RCLCPP_INFO(
-    node_->get_logger(), "[sbpl_lattice_planner] getting start point (%g,%g) goal point (%g,%g)",
+    logger_, "[sbpl_lattice_planner] getting start point (%g,%g) goal point (%g,%g)",
            start.pose.position.x, start.pose.position.y,goal.pose.position.x, goal.pose.position.y);
   double theta_start = 2 * atan2(start.pose.orientation.z, start.pose.orientation.w);
   double theta_goal = 2 * atan2(goal.pose.orientation.z, goal.pose.orientation.w);
@@ -408,13 +414,13 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
     int ret = env_->SetStart(start.pose.position.x - costmap_ros_->getCostmap()->getOriginX(), start.pose.position.y - costmap_ros_->getCostmap()->getOriginY(), theta_start);
     if(ret < 0 || planner_->set_start(ret) == 0){
       RCLCPP_ERROR(
-        node_->get_logger(), "ERROR: failed to set start state\n");
+        logger_, "ERROR: failed to set start state\n");
       return path;
     }
   }
   catch(SBPL_Exception *e){
     RCLCPP_ERROR(
-        node_->get_logger(), "SBPL encountered a fatal exception while setting the start state");
+        logger_, "SBPL encountered a fatal exception while setting the start state");
     return path;
   }
 
@@ -422,13 +428,13 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
     int ret = env_->SetGoal(goal.pose.position.x - costmap_ros_->getCostmap()->getOriginX(), goal.pose.position.y - costmap_ros_->getCostmap()->getOriginY(), theta_goal);
     if(ret < 0 || planner_->set_goal(ret) == 0){
       RCLCPP_ERROR(
-        node_->get_logger(), "ERROR: failed to set goal state\n");
+        logger_, "ERROR: failed to set goal state\n");
       return path;
     }
   }
   catch(SBPL_Exception *e){
     RCLCPP_ERROR(
-        node_->get_logger(), "SBPL encountered a fatal exception while setting the goal state");
+        logger_, "SBPL encountered a fatal exception while setting the goal state");
     return path;
   }
   
@@ -479,40 +485,40 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
   }
   catch(SBPL_Exception *e){
     RCLCPP_ERROR(
-        node_->get_logger(), "SBPL failed to update the costmap");
+        logger_, "SBPL failed to update the costmap");
     return path;
   }
 
   //setting planner parameters
   RCLCPP_DEBUG(
-        node_->get_logger(), "allocated:%f, init eps:%f\n",allocated_time_,initial_epsilon_);
+        logger_, "allocated:%f, init eps:%f\n",allocated_time_,initial_epsilon_);
   planner_->set_initialsolution_eps(initial_epsilon_);
   planner_->set_search_mode(false);
 
   RCLCPP_DEBUG(
-        node_->get_logger(), "[sbpl_lattice_planner] run planner");
+        logger_, "[sbpl_lattice_planner] run planner");
   vector<int> solution_stateIDs;
   int solution_cost;
   try{
     int ret = planner_->replan(allocated_time_, &solution_stateIDs, &solution_cost);
     if(ret)
       RCLCPP_DEBUG(
-        node_->get_logger(), "Solution is found\n");
+        logger_, "Solution is found\n");
     else{
       RCLCPP_INFO(
-        node_->get_logger(), "Solution not found\n");
+        logger_, "Solution not found\n");
       publishStats(solution_cost, 0, start, goal);
       return path;
     }
   }
   catch(SBPL_Exception *e){
     RCLCPP_ERROR(
-        node_->get_logger(), "SBPL encountered a fatal exception while planning");
+        logger_, "SBPL encountered a fatal exception while planning");
     return path;
   }
 
   RCLCPP_DEBUG(
-    node_->get_logger(), "size of solution=%d", (int)solution_stateIDs.size());
+    logger_, "size of solution=%d", (int)solution_stateIDs.size());
 
   // vector<int> -> vector<EnvNAVXYTHETALAT3Dpt_t>
   
@@ -522,7 +528,7 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
   }
   catch(SBPL_Exception *e){
     RCLCPP_ERROR(
-        node_->get_logger(), "SBPL encountered a fatal exception while reconstructing the path");
+        logger_, "SBPL encountered a fatal exception while reconstructing the path");
     return path;
   }
   
@@ -537,8 +543,8 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
   }
 
   RCLCPP_DEBUG(
-    node_->get_logger(), "Plan has %d points.\n", (int)sbpl_path.size());
-  rclcpp::Time plan_time = node_->now();
+    logger_, "Plan has %d points.\n", (int)sbpl_path.size());
+  rclcpp::Time plan_time = clock_->now();
 
   // vector<EnvNAVXYTHETALAT3Dpt_t> -> nav_msgs::msg::Path
 
@@ -562,15 +568,15 @@ nav_msgs::msg::Path SBPLLatticePlanner::createPlan(
     pose.pose.orientation.z = temp.getZ();
     pose.pose.orientation.w = temp.getW();
 
-    // RCLCPP_INFO(node_->get_logger(), "i: %d", i);
-    // RCLCPP_INFO(node_->get_logger(), "x: %f", pose.pose.position.x);
-    // RCLCPP_INFO(node_->get_logger(), "y: %f", pose.pose.position.y);
-    // RCLCPP_INFO(node_->get_logger(), "theta: %f", sbpl_path[i].theta);
+    // RCLCPP_INFO(logger_, "i: %d", i);
+    // RCLCPP_INFO(logger_, "x: %f", pose.pose.position.x);
+    // RCLCPP_INFO(logger_, "y: %f", pose.pose.position.y);
+    // RCLCPP_INFO(logger_, "theta: %f", sbpl_path[i].theta);
 
     path.poses.push_back(pose);
   }
 
-  RCLCPP_INFO(node_->get_logger(), "Valid plan created");
+  RCLCPP_INFO(logger_, "Valid plan created");
 
   publishStats(solution_cost, sbpl_path.size(), start, goal);
 

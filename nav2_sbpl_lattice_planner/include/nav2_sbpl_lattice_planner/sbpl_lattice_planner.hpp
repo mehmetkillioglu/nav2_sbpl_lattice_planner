@@ -39,7 +39,7 @@ public:
   
   // plugin configure
   void configure(
-    rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
     std::string name, std::shared_ptr<tf2_ros::Buffer> tf,
     std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros) override;
 
@@ -59,7 +59,7 @@ public:
 
 private:
 
-  void initialize();
+  void initialize(nav2_util::LifecycleNode::SharedPtr node_);
 
   unsigned char costMapCostToSBPLCost(unsigned char newcost);
   void publishStats(int solution_cost, int solution_size, 
@@ -95,9 +95,13 @@ private:
 
   // TF buffer
   std::shared_ptr<tf2_ros::Buffer> tf_;
-
   // node ptr
-  nav2_util::LifecycleNode::SharedPtr node_;
+  nav2_util::LifecycleNode::WeakPtr nh_;
+  // Clock
+  rclcpp::Clock::SharedPtr clock_;
+
+  // Logger
+  rclcpp::Logger logger_{rclcpp::get_logger("SBPLPlanner")};
 
   // Global Costmap
   nav2_costmap_2d::Costmap2D * costmap_;
@@ -110,7 +114,7 @@ private:
 //   rclcpp::Publisher<nav2_sbpl_lattice_planner_msgs::msg::SbplLatticePlannerStats>::SharedPtr stats_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<nav2_sbpl_lattice_planner_msgs::msg::SbplLatticePlannerStats>::SharedPtr stats_publisher_;
 };
-};
+}
 
 #endif
 
