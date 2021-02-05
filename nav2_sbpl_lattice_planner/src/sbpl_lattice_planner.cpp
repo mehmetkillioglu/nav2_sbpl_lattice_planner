@@ -88,11 +88,12 @@ SBPLLatticePlanner::SBPLLatticePlanner()
   : tf_(nullptr), node_(nullptr), costmap_(nullptr) {}
 
 void SBPLLatticePlanner::configure(
-  rclcpp_lifecycle::LifecycleNode::SharedPtr parent,
+  rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
   std::string name, std::shared_ptr<tf2_ros::Buffer> tf,
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
 {
-  node_ = parent;
+  auto node_ = parent.lock();
+  //node_ = parent;
   name_ = name;
   tf_ = tf;
   costmap_ros_ = costmap_ros;

@@ -1,0 +1,32 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/mehmet/main_nav2/mir_ws/build/mir_bridge",
+        "/home/mehmet/main_nav2/mir_ws/install/mir_bridge/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/mir_ws/install/sdc21x0/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/mir_ws/install/mir_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/mir_ws/install/mir_actions/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/depend_ws/install/teb_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/depend_ws/build/ros2_message_converter",
+        "/home/mehmet/main_nav2/depend_ws/install/ros2_message_converter/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/depend_ws/install/robot_localization/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/depend_ws/install/gazebo_ros/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/depend_ws/install/gazebo_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/depend_ws/install/costmap_converter_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_ws/install/dwb_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_ws/install/nav_2d_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_ws/install/nav2_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_ws/build/nav2_gazebo_spawner",
+        "/home/mehmet/main_nav2/nav2_ws/install/nav2_gazebo_spawner/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_ws/install/nav2_common/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/test_bond/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/smclib/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/build/opencv_tests",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/opencv_tests/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/image_geometry/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/gazebo_ros/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/gazebo_msgs/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/cv_bridge/lib/python3.8/site-packages",
+        "/home/mehmet/main_nav2/nav2_depend_ws/install/bond/lib/python3.8/site-packages",
+        "/opt/ros/rolling/lib/python3.8/site-packages"
+    ]
+}
